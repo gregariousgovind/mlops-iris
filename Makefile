@@ -28,7 +28,6 @@ DOCKER_IMAGE := gregariousgovind/mlops-iris:latest
         dvc-init dvc-remote dvc-autostage dvc-repro dvc-push dvc-pull dvc-status \
         test-part1 qa-part1 clean
 
-# Default goal
 help:
 	@echo ""
 	@echo "Targets:"
@@ -42,7 +41,7 @@ help:
 	@echo "  train           Train models and log to MLflow"
 	@echo "  api             Run FastAPI locally"
 	@echo "  lint            Run flake8"
-	@echo "  test            Run full pytest"
+	@echo "  test            Run full pytest (ensures data exists)"
 	@echo "  docker-build    Build Docker image ($(DOCKER_IMAGE))"
 	@echo "  docker-run      Run Docker image on port $(API_PORT)"
 	@echo "  dvc-init        Initialize DVC (idempotent)"
@@ -52,7 +51,7 @@ help:
 	@echo "  dvc-push        Push artifacts to DVC remote"
 	@echo "  dvc-pull        Pull artifacts from DVC remote"
 	@echo "  dvc-status      Show DVC status (with remote)"
-	@echo "  test-part1      Run Part-1 validation tests only"
+	@echo "  test-part1      Run Part-1 validation tests only (ensures data exists)"
 	@echo "  qa-part1        Quick DVC status + push (Part-1 QA)"
 	@echo "  clean           Remove caches/pyc (keeps venv)"
 	@echo ""
@@ -64,14 +63,12 @@ setup:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r $(REQUIREMENTS_FILE)
 
-# Force install from the lock file (fails if lock is missing)
 setup-lock:
 	@test -f requirements.lock.txt || (echo "requirements.lock.txt not found. Run 'make lock' first." && exit 1)
 	python3 -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.lock.txt
 
-# Create/refresh the lock file from ranges in requirements.txt
 lock:
 	python3 -m venv .venv
 	$(PIP) install --upgrade pip
@@ -81,7 +78,6 @@ lock:
 
 update-lock: lock
 
-# Local parity with CI install behavior
 ci-install:
 	@test -f requirements.lock.txt || (echo "requirements.lock.txt not found. Run 'make lock' first." && exit 1)
 	python3 -m venv .venv
@@ -95,7 +91,6 @@ data:
 mlflow:
 	$(MLFLOW) server --backend-store-uri sqlite:///mlflow.db \
 	  --default-artifact-root ./mlruns --host $(MLFLOW_HOST) --port $(MLFLOW_PORT)
-	# or: . .venv/bin/activate && ./scripts/run_mlflow.sh
 
 train:
 	MLFLOW_TRACKING_URI=http://$(MLFLOW_HOST):$(MLFLOW_PORT) $(PYTHON) src/train.py
@@ -107,14 +102,13 @@ api:
 lint:
 	$(FLAKE8)
 
-test:
+# Ensure data exists before running tests
+test: data
 	$(PYTEST) -q
 
-# Focused Part-1 test (schema/metadata/determinism)
-test-part1:
+test-part1: data
 	$(PYTEST) -q tests/test_part1_validation.py
 
-# Quick Part-1 DVC QA: show status + push
 qa-part1:
 	-$(DVC) status -c
 	-$(DVC) push
