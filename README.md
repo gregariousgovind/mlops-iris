@@ -41,7 +41,3 @@ docker run --rm -p 8000:8000 <you>/mlops-iris:latest
 - File logs: `logs/app.log`
 - SQLite: `logs/predictions.db` (table: `requests` with features, prediction, latency)
 - Metrics: `GET /metrics` (Prometheus format)
-
-## Notes
-- API will **fallback** to a quick-initialized model if `artifacts/model/model.joblib` is missing (useful for CI tests).
-- Prefer running MLflow server with SQLite backend: `./scripts/run_mlflow.sh` (UI at `http://127.0.0.1:5000`).
