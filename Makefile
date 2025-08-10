@@ -1,25 +1,37 @@
+SHELL := /bin/bash
+PYTHON := .venv/bin/python
+PIP := .venv/bin/pip
+UVICORN := .venv/bin/uvicorn
+MLFLOW := .venv/bin/mlflow
+FLAKE8 := .venv/bin/flake8
+PYTEST := .venv/bin/pytest
+
 .PHONY: setup data train api docker-build docker-run lint test mlflow
 
 setup:
-	python3 -m venv .venv && . .venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt
+	python3 -m venv .venv
+	$(PIP) install --upgrade pip
+	$(PIP) install -r requirements.txt
 
 data:
-	python src/data.py
+	$(PYTHON) src/data.py
 
 mlflow:
-	./scripts/run_mlflow.sh
+	$(MLFLOW) server --backend-store-uri sqlite:///mlflow.db \
+	  --default-artifact-root ./mlruns --host 127.0.0.1 --port 5000
+	# or: . .venv/bin/activate && ./scripts/run_mlflow.sh
 
 train:
-	MLFLOW_TRACKING_URI=http://127.0.0.1:5000 python src/train.py
+	MLFLOW_TRACKING_URI=http://127.0.0.1:5000 $(PYTHON) src/train.py
 
 api:
-	uvicorn api.main:app --reload --port 8000
+	$(UVICORN) api.main:app --reload --port 8000
 
 lint:
-	flake8
+	$(FLAKE8)
 
 test:
-	pytest -q
+	$(PYTEST) -q
 
 docker-build:
 	docker build -t gregariousgovind/mlops-iris:latest .
