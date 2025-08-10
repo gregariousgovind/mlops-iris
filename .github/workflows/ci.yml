@@ -49,10 +49,10 @@ jobs:
           ls -la data || true
 
       - name: Lint
-        run: .venv/bin/flake8
+        run: python -m flake8
 
       - name: Tests (with fast fail)
-        run: .venv/bin/pytest -q
+        run: python -m pytest -q
 
   # -------- Build & Push Image --------
   build-and-push:
@@ -82,10 +82,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.lock.txt
 
-      # Build the model artifact so the image includes a real model
       - name: Prepare data & train model
         env:
-          # Use local file store for MLflow in CI (no server needed)
+          # Use local MLflow file store in CI (no server needed)
           MLFLOW_TRACKING_URI: file:./mlruns
         run: |
           python src/data.py
