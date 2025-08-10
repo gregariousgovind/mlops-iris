@@ -1,10 +1,11 @@
 stages:
   prepare_data:
+    desc: "Load Iris, write raw/processed CSV + schema + metadata"
     cmd: python src/data.py
     deps:
       - src/data.py
     outs:
       - data/raw/iris.csv
       - data/processed/iris.csv
-      - data/metadata.json
       - data/schema.json
+      - data/metadata.json

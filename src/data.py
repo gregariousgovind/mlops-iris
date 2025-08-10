@@ -3,26 +3,24 @@ Data preparation for the Iris dataset.
 
 What this script does
 ---------------------
-1) Loads the Iris dataset from scikit-learn (a well-known public dataset).
-2) Renames columns to snake_case for consistency across the project.
-3) Saves:
-   - Raw CSV:        data/raw/iris.csv
-   - Processed CSV:  data/processed/iris.csv  (same as raw for this dataset)
-   - Metadata JSON:  data/metadata.json       (rows, columns, checksum, version info, etc.)
-   - Schema JSON:    data/schema.json         (feature names and types)
+1) Loads Iris from scikit-learn (public dataset).
+2) Normalizes column names to snake_case.
+3) Writes:
+   - data/raw/iris.csv
+   - data/processed/iris.csv   (same as raw for this simple dataset)
+   - data/schema.json          (feature/target schema for validation/docs)
+   - data/metadata.json        (rows, columns, class counts, checksum, git SHA, timestamp)
 
-Why so many outputs?
---------------------
-- CSVs are used by training and CI tests.
-- Metadata/Schema make the project professional and future-proof:
-  * We can validate API inputs later (Part 3 & Bonus).
-  * We can quickly see data drift or accidental changes by comparing checksums.
+Why keep both raw and processed?
+--------------------------------
+Mirrors real pipelines and makes it easy to insert transformations later
+without changing the repository structure.
 
 How to run
 ----------
 $ python src/data.py
 
-This file is called by DVC as well (see dvc.yaml).
+This file is also the single command in the DVC stage defined in dvc.yaml.
 """
 
 from __future__ import annotations
@@ -35,15 +33,15 @@ from typing import Dict
 
 from sklearn.datasets import load_iris
 
-
+# Default output locations
 RAW_PATH = "data/raw/iris.csv"
 PROCESSED_PATH = "data/processed/iris.csv"
-METADATA_PATH = "data/metadata.json"
 SCHEMA_PATH = "data/schema.json"
+METADATA_PATH = "data/metadata.json"
 
 
 def _git_commit_short_sha() -> str:
-    """Return the short Git commit SHA if available, else 'unknown'."""
+    """Return the short Git commit SHA if available; 'unknown' if not a git repo."""
     try:
         return (
             subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
@@ -55,7 +53,7 @@ def _git_commit_short_sha() -> str:
 
 
 def _sha256_file(path: str) -> str:
-    """Compute SHA-256 checksum of a file (helps detect changes reliably)."""
+    """Compute SHA-256 checksum for a file (used in metadata for integrity checks)."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -66,24 +64,24 @@ def _sha256_file(path: str) -> str:
 def save_iris(
     raw_path: str = RAW_PATH,
     processed_path: str = PROCESSED_PATH,
-    metadata_path: str = METADATA_PATH,
     schema_path: str = SCHEMA_PATH,
+    metadata_path: str = METADATA_PATH,
 ) -> None:
     """
-    Load Iris dataset, normalize headers, write CSVs, and produce metadata/schema.
+    Load Iris, write CSVs, and produce schema + metadata.
 
     Parameters
     ----------
     raw_path : str
-        Output path for the raw CSV.
+        Output path for the raw CSV export.
     processed_path : str
-        Output path for the processed CSV (same content for this simple dataset).
-    metadata_path : str
-        Output path for metadata JSON.
+        Output path for the processed CSV (identical to raw in this project).
     schema_path : str
-        Output path for schema JSON.
+        Output path for the JSON schema (feature types, target info).
+    metadata_path : str
+        Output path for the JSON metadata (shape, checksum, code version).
     """
-    # 1) Load dataset
+    # ---- Load & rename columns
     iris = load_iris(as_frame=True)
     df = iris.frame.rename(
         columns={
@@ -95,19 +93,16 @@ def save_iris(
         }
     )
 
-    # Ensure folders exist
-    os.makedirs(os.path.dirname(raw_path), exist_ok=True)
-    os.makedirs(os.path.dirname(processed_path), exist_ok=True)
-    os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
+    # ---- Ensure directories exist
+    for p in (raw_path, processed_path, schema_path, metadata_path):
+        os.makedirs(os.path.dirname(p), exist_ok=True)
 
-    # 2) Save CSVs
+    # ---- Write CSVs (raw & processed)
     df.to_csv(raw_path, index=False)
-    # For this dataset, no heavy preprocessing is required (no missing values, tiny size).
-    # Keeping "processed" identical to raw keeps the pipeline shape realistic.
     df.to_csv(processed_path, index=False)
 
-    # 3) Schema (for future validation and docs)
-    schema: Dict[str, str] = {
+    # ---- Schema for future validation (API & training)
+    schema: Dict[str, object] = {
         "features": {
             "sepal_length": "float",
             "sepal_width": "float",
@@ -120,7 +115,7 @@ def save_iris(
     with open(schema_path, "w") as f:
         json.dump(schema, f, indent=2)
 
-    # 4) Metadata (helpful in reviews & CI logs)
+    # ---- Metadata for auditability
     checksum = _sha256_file(processed_path)
     class_counts = df["label"].value_counts().to_dict()
     metadata = {

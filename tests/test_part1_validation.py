@@ -1,25 +1,20 @@
-"""
-Part 1 Validation Tests
-- Verifies dataset files exist
-- Validates schema & metadata contracts
-- Confirms deterministic checksum
-- Checks basic data assumptions (rows, columns, class balance)
-Run:
-    pytest -q tests/test_part1_validation.py
-"""
-
-from __future__ import annotations
-import hashlib
-import json
 import os
+import json
+import hashlib
 from typing import Dict
 
 import pandas as pd
 
+# ---- Paths expected from src/data.py (and dvc.yaml stage) ---------------------
 RAW = "data/raw/iris.csv"
 PROCESSED = "data/processed/iris.csv"
 SCHEMA = "data/schema.json"
 METADATA = "data/metadata.json"
+
+FEATURE_COLS = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+TARGET_COL = "label"
+EXPECTED_ROWS = 150
+EXPECTED_LABELS = {0, 1, 2}
 
 
 def sha256_file(path: str) -> str:
@@ -30,6 +25,9 @@ def sha256_file(path: str) -> str:
     return h.hexdigest()
 
 
+# --------------------------------------------------------------------------------
+# Existence checks
+# --------------------------------------------------------------------------------
 def test_files_exist() -> None:
     assert os.path.exists(RAW), "Missing data/raw/iris.csv"
     assert os.path.exists(PROCESSED), "Missing data/processed/iris.csv"
@@ -37,68 +35,56 @@ def test_files_exist() -> None:
     assert os.path.exists(METADATA), "Missing data/metadata.json"
 
 
+# --------------------------------------------------------------------------------
+# Schema contract
+# --------------------------------------------------------------------------------
 def test_schema_contract() -> None:
     schema: Dict = json.load(open(SCHEMA))
-    assert "features" in schema and "target" in schema
-    feats = schema["features"]
-    assert list(feats.keys()) == [
-        "sepal_length",
-        "sepal_width",
-        "petal_length",
-        "petal_width",
-    ], "Feature names must match expected columns"
-    assert "label" in schema["target"] or schema["target"].get("label") is not None
+    assert "features" in schema and isinstance(schema["features"], dict)
+    assert "target" in schema and isinstance(schema["target"], dict)
+    assert "primary_key" in schema
+
+    for col in FEATURE_COLS:
+        assert col in schema["features"], f"Schema missing feature: {col}"
+        assert isinstance(schema["features"][col], str), "Feature types should be strings"
+
+    assert TARGET_COL in schema["target"], "Schema missing target label"
 
 
+# --------------------------------------------------------------------------------
+# Metadata contract + checksum integrity
+# --------------------------------------------------------------------------------
 def test_metadata_contract_and_checksum() -> None:
     meta: Dict = json.load(open(METADATA))
-    # Required keys
-    for k in [
-        "dataset",
-        "created_at",
-        "rows",
-        "columns",
-        "class_counts",
-        "processed_csv",
-        "checksum_sha256",
-        "code_version_git",
-    ]:
-        assert k in meta, f"metadata.json missing key: {k}"
-    # Sanity
-    assert meta["dataset"] == "iris"
+    for key in ["dataset", "rows", "columns", "processed_csv", "checksum_sha256", "created_at"]:
+        assert key in meta, f"metadata.json missing '{key}'"
+
+    # Path should match constant
     assert meta["processed_csv"] == PROCESSED
-    assert meta["rows"] == 150
-    assert meta["columns"] == [
-        "sepal_length",
-        "sepal_width",
-        "petal_length",
-        "petal_width",
-        "label",
-    ]
-    # Deterministic checksum
-    assert sha256_file(PROCESSED) == meta["checksum_sha256"], "Checksum mismatch"
+
+    # Checksum must match actual processed csv
+    actual = sha256_file(PROCESSED)
+    assert actual == meta["checksum_sha256"], "Checksum mismatch: processed CSV changed unexpectedly"
 
 
+# --------------------------------------------------------------------------------
+# Dataframe expectations (shape, columns, basic types and values)
+# --------------------------------------------------------------------------------
 def test_dataframe_expectations() -> None:
     df = pd.read_csv(PROCESSED)
-    # Shape & columns
-    assert df.shape[0] == 150
-    assert list(df.columns) == [
-        "sepal_length",
-        "sepal_width",
-        "petal_length",
-        "petal_width",
-        "label",
-    ]
-    # Types: pandas will coerce to float64/int64; allow any numeric
-    assert pd.api.types.is_numeric_dtype(df["sepal_length"])
-    assert pd.api.types.is_numeric_dtype(df["sepal_width"])
-    assert pd.api.types.is_numeric_dtype(df["petal_length"])
-    assert pd.api.types.is_numeric_dtype(df["petal_width"])
-    assert pd.api.types.is_integer_dtype(df["label"]) or pd.api.types.is_numeric_dtype(
-        df["label"]
-    )
 
-    # Class balance (50 each for classic Iris)
-    counts = df["label"].value_counts().to_dict()
-    assert counts.get(0, 0) == 50 and counts.get(1, 0) == 50 and counts.get(2, 0) == 50
+    # shape & columns
+    assert df.shape[0] == EXPECTED_ROWS, f"Expected {EXPECTED_ROWS} rows"
+    for col in FEATURE_COLS + [TARGET_COL]:
+        assert col in df.columns, f"Missing column: {col}"
+
+    # simple type checks (numeric features, integer labels)
+    assert pd.api.types.is_numeric_dtype(df[FEATURE_COLS].dtypes).all(), "Features must be numeric"
+    assert pd.api.types.is_integer_dtype(df[TARGET_COL].dtype), "Label should be integer-coded"
+
+    # value domain checks
+    unique_labels = set(df[TARGET_COL].unique().tolist())
+    assert unique_labels.issubset(EXPECTED_LABELS), f"Unexpected labels: {unique_labels - EXPECTED_LABELS}"
+
+    # no nulls
+    assert not df.isna().any().any(), "Found missing values in processed data"

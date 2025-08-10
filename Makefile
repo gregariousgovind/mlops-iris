@@ -1,14 +1,20 @@
 # ---- Config & tool paths ------------------------------------------------------
 SHELL := /bin/bash
 
-# Virtualenv tools (created by `make setup` or `make setup-lock`)
-PYTHON := .venv/bin/python
-PIP := .venv/bin/pip
-UVICORN := .venv/bin/uvicorn
-MLFLOW := .venv/bin/mlflow
-FLAKE8 := .venv/bin/flake8
-PYTEST := .venv/bin/pytest
-DVC := .venv/bin/dvc
+# ---- Virtualenv paths (cross-OS) ---------------------------------------------
+ifeq ($(OS),Windows_NT)
+  VENV_BIN := .venv/Scripts
+else
+  VENV_BIN := .venv/bin
+endif
+
+PYTHON  := $(VENV_BIN)/python
+PIP     := $(VENV_BIN)/pip
+UVICORN := $(VENV_BIN)/uvicorn
+MLFLOW  := $(VENV_BIN)/mlflow
+FLAKE8  := $(VENV_BIN)/flake8
+PYTEST  := $(VENV_BIN)/pytest
+DVC     := $(VENV_BIN)/dvc
 
 # Auto-select requirements file: prefer lock if present
 REQUIREMENTS_FILE := $(if $(wildcard requirements.lock.txt),requirements.lock.txt,requirements.txt)
@@ -59,18 +65,18 @@ help:
 # ---- Environment & installs ---------------------------------------------------
 setup:
 	@echo ">> Using $(REQUIREMENTS_FILE) for installation"
-	python3 -m venv .venv
+	python -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r $(REQUIREMENTS_FILE)
 
 setup-lock:
 	@test -f requirements.lock.txt || (echo "requirements.lock.txt not found. Run 'make lock' first." && exit 1)
-	python3 -m venv .venv
+	python -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.lock.txt
 
 lock:
-	python3 -m venv .venv
+	python -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	$(PIP) freeze | sed '/^-e /d' > requirements.lock.txt
@@ -80,7 +86,7 @@ update-lock: lock
 
 ci-install:
 	@test -f requirements.lock.txt || (echo "requirements.lock.txt not found. Run 'make lock' first." && exit 1)
-	python3 -m venv .venv
+	python -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.lock.txt
 

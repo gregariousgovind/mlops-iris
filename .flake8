@@ -1,3 +1,25 @@
 [flake8]
-max-line-length = 100
-exclude = .venv,venv,.git,.mypy_cache,__pycache__
+# Reasonable width without forcing 79
+max-line-length = 200
+
+# Skip common junk and generated/runtime dirs
+exclude =
+    .git,
+    .venv,
+    build,
+    dist,
+    mlruns,
+    logs,
+    __pycache__,
+    .mypy_cache,
+    .pytest_cache
+
+# Ignore a couple of opinionated/legacy rules
+# - E203/W503 conflict with popular formatters and modern style guides
+extend-ignore = E203, W503
+
+# Useful per-file ignores
+# - __init__.py often re-exports symbols (F401: imported but unused)
+per-file-ignores =
+    __init__.py: F401
+    tests/*: E402

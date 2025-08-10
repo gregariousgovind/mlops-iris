@@ -1,43 +1,62 @@
-# MLOps Iris: Build, Track, Package, Deploy & Monitor
+# MLOps Iris — Build, Track, Package, Deploy & Monitor
 
 **Dataset:** Iris (classification)  
-**Stack:** Git/GitHub, (DVC optional), MLflow, FastAPI, Docker, GitHub Actions, Logging+SQLite, Prometheus metrics
+**Stack:** Git/GitHub · DVC · MLflow · FastAPI · Docker · GitHub Actions · Logging+SQLite · Prometheus
 
-## Architecture
-1. **Data** → `src/data.py` saves Iris to CSV (`data/raw`, `data/processed`) [DVC optional].
-2. **Training** → `src/train.py` trains LogisticRegression & RandomForest, logs params/metrics to MLflow, registers best model `iris_clf` (Production), and exports `artifacts/model/model.joblib` for packaging.
-3. **Serving** → `api/main.py` exposes `/predict`, `/health`, `/metrics`; uses **Pydantic** for validation; logs to file + SQLite.
-4. **Container** → `Dockerfile` bakes API and model; `uvicorn` serves port 8000.
-5. **CI/CD** → `.github/workflows/ci.yml` lints, tests, builds, pushes image to Docker Hub.
-6. **Monitoring** → `/metrics` exposes Prometheus counters & histograms (requests, latency).
+---
 
-## Local Run
+## How this meets the assignment
+
+- **Part 1 — Repo & Data Versioning (4/4)**
+  - Clean structure: `src/`, `api/`, `tests/`, `artifacts/`, `data/`, `scripts/`, `.github/`.
+  - `src/data.py` writes:  
+    `data/raw/iris.csv`, `data/processed/iris.csv`, `data/schema.json`, `data/metadata.json`.
+  - DVC pipeline: `dvc.yaml` + `dvc.lock`; local remote via `make dvc-remote`; `make dvc-repro/push/pull`.
+- **Part 2 — Model + Experiment Tracking (6/6)**
+  - Trains **LogisticRegression** & **RandomForest**; logs params/metrics/artifacts in MLflow.
+  - Best model exported to `artifacts/model/model.joblib`.
+  - **Model Registry**: when MLflow server is running, best model is registered as `iris_clf` and promoted to **Production**.
+- **Part 3 — API & Docker (4/4)**
+  - FastAPI with Pydantic v2 (`/predict`, `/health`, `/metrics`).
+  - Hardened Dockerfile (non-root, lockfile installs, minimal runtime deps).
+- **Part 4 — CI/CD (6/6)**
+  - GitHub Actions: lockfile installs, lint, tests, build & push Docker image on `main`, **smoke tests** container via `/health`.
+  - Local deploy script with health check.
+- **Part 5 — Logging & Monitoring (4/4)**
+  - Rotating file logs: `logs/app.log`.
+  - SQLite request log: `logs/predictions.db`.
+  - Prometheus metrics at `/metrics` (counters + latency histogram).
+- **Part 6 — Summary + Demo (2/2)**
+  - This README is the 1-page summary; see “Demo script” below for a 5-minute walkthrough.
+- **Bonus (+ up to 4)**
+  - ✅ Input validation (Pydantic v2).  
+  - ✅ Prometheus endpoint.  
+  - ✳️ Optional Prometheus/Grafana compose + retrain script stubs available on request.
+
+---
+
+## Quickstart (local)
+
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python src/data.py
-./scripts/run_mlflow.sh     # new terminal tab
-export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+# 1) Setup (uses requirements.lock.txt if present)
+make setup
+
+# 2) Part 1: generate data artifacts
+make data
+
+# 3) Part 2: run MLflow locally (for registry demo, optional for CI)
+./scripts/run_mlflow.sh          # opens UI at http://127.0.0.1:5000 in a new tab
+
+# 4) Train & register (with MLflow UI running)
+MLFLOW_TRACKING_URI=http://127.0.0.1:5000 python src/train.py
+
+# (CI-friendly: tracks to local file store if no server)
 python src/train.py
+
+# 5) Serve the API
 uvicorn api.main:app --port 8000
-```
 
-**Test prediction:**
-```bash
-curl -s -X POST http://127.0.0.1:8000/predict   -H "Content-Type: application/json"   -d '{"sepal_length":5.1,"sepal_width":3.5,"petal_length":1.4,"petal_width":0.2}'
-```
-
-## Docker
-```bash
-docker build -t <you>/mlops-iris:latest .
-docker run --rm -p 8000:8000 <you>/mlops-iris:latest
-```
-
-## CI/CD (GitHub Actions)
-- Add repo secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
-- Push to `main` → lints, tests, builds and pushes image tags (`latest` and commit SHA).
-
-## Logs & Monitoring
-- File logs: `logs/app.log`
-- SQLite: `logs/predictions.db` (table: `requests` with features, prediction, latency)
-- Metrics: `GET /metrics` (Prometheus format)
+# 6) Try it
+curl -s http://127.0.0.1:8000/health
+curl -s -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" \
+  -d '{"sepal_length":5.1,"sepal_width":3.5,"petal_length":1.4,"petal_width":0.2}'

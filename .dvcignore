@@ -1,5 +1,28 @@
-**/__pycache__/
-**/*.pyc
+# --- VCS / IDE / OS junk -------------------------------------------------------
+.git/
+.github/
+.vscode/
+.idea/
+.DS_Store
+
+# --- Python caches / envs ------------------------------------------------------
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Local runtime artifacts (not managed by DVC) ------------------------------
 logs/
 mlruns/
-mlflow.db
+mlflow.db*
+notebooks/.ipynb_checkpoints/
+
+# --- Build / dist --------------------------------------------------------------
+build/
+dist/
+
+# --- Artifacts not tracked by DVC (we package these via Docker/CI) ------------
+artifacts/model/
+
+# --- Tests & misc (irrelevant to data pipeline) --------------------------------
+tests/

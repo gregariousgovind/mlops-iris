@@ -1,8 +1,39 @@
-experiment_name: iris-exp
-test_size: 0.2
-random_state: 42
-rf:
-  n_estimators: 200
-  random_state: 42
-logreg:
-  max_iter: 200
+# Global project parameters (optional — not wired into dvc.yaml yet)
+project:
+  name: mlops-iris
+  seed: 42
+
+data:
+  raw_csv: data/raw/iris.csv
+  processed_csv: data/processed/iris.csv
+  test_size: 0.2
+  stratify: true
+
+models:
+  # You can toggle which to train/use; src/train.py currently trains both.
+  enabled: ["logreg", "rf"]
+
+  logreg:
+    max_iter: 200
+    C: 1.0
+    penalty: "l2"
+    solver: "lbfgs"
+
+  rf:
+    n_estimators: 200
+    max_depth: null # null => no limit
+    min_samples_split: 2
+    min_samples_leaf: 1
+    random_state: 42
+
+mlflow:
+  experiment: "iris-exp"
+  model_name: "iris_clf"
+  tracking_uri_default: "file:./mlruns" # CI default
+  # For local UI/registry demo, export env var:
+  # MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+
+serving:
+  model_path: artifacts/model/model.joblib
+  api_port: 8000
+  log_dir: logs

@@ -16,10 +16,8 @@ env:
   PY_VERSION: "3.11"
 
 jobs:
-  # -------- Quality & Tests --------
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,17 +47,15 @@ jobs:
           ls -la data || true
 
       - name: Lint
-        run: python -m flake8
+        run: flake8
 
-      - name: Tests (with fast fail)
-        run: python -m pytest -q
+      - name: Tests
+        run: pytest -q
 
-  # -------- Build & Push Image --------
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,7 +80,6 @@ jobs:
 
       - name: Prepare data & train model
         env:
-          # Use local MLflow file store in CI (no server needed)
           MLFLOW_TRACKING_URI: file:./mlruns
         run: |
           python src/data.py
@@ -112,12 +107,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push
+      - name: Build & Push (multi-arch)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
