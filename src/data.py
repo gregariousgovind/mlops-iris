@@ -1,7 +1,10 @@
 from pathlib import Path
 from sklearn.datasets import load_iris
 
-def save_iris(raw_path: str = "data/raw/iris.csv", processed_path: str = "data/processed/iris.csv") -> None:
+
+def save_iris(
+        raw_path: str = "data/raw/iris.csv",
+        processed_path: str = "data/processed/iris.csv") -> None:
     Path(raw_path).parent.mkdir(parents=True, exist_ok=True)
     Path(processed_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -18,6 +21,7 @@ def save_iris(raw_path: str = "data/raw/iris.csv", processed_path: str = "data/p
     df.to_csv(raw_path, index=False)
     df.to_csv(processed_path, index=False)
     print(f"saved: {raw_path}, {processed_path}")
+
 
 if __name__ == "__main__":
     save_iris()

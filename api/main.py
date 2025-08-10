@@ -40,11 +40,13 @@ model = _load_or_init_model(MODEL_PATH)
 REQUESTS = Counter("predict_requests_total", "Total prediction requests")
 LATENCY = Histogram("predict_latency_seconds", "Prediction latency (s)")
 
+
 class IrisPayload(BaseModel):
     sepal_length: float = Field(..., ge=0)
     sepal_width: float = Field(..., ge=0)
     petal_length: float = Field(..., ge=0)
     petal_width: float = Field(..., ge=0)
+
 
 @app.get("/health")
 def health():
@@ -97,6 +99,7 @@ def predict(payload: IrisPayload):
     conn.close()
 
     return {"prediction": pred, "latency_ms": round(dt * 1000, 2)}
+
 
 @app.get("/metrics")
 def metrics():
