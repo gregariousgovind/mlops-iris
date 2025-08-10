@@ -1,8 +1,10 @@
 import os
 import sqlite3
 import time
+from typing import List
 
 import joblib
+import pandas as pd
 from fastapi import FastAPI
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -40,6 +42,8 @@ model = _load_or_init_model(MODEL_PATH)
 REQUESTS = Counter("predict_requests_total", "Total prediction requests")
 LATENCY = Histogram("predict_latency_seconds", "Prediction latency (s)")
 
+COLS: List[str] = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
+
 
 class IrisPayload(BaseModel):
     sepal_length: float = Field(..., ge=0)
@@ -57,24 +61,19 @@ def health():
 def predict(payload: IrisPayload):
     REQUESTS.inc()
     t0 = time.time()
+    row = payload.model_dump()
 
-    features = [
-        [
-            payload.sepal_length,
-            payload.sepal_width,
-            payload.petal_length,
-            payload.petal_width,
-        ]
-    ]
-    pred = int(model.predict(features)[0])
+    feature_names = getattr(model, "feature_names_in_", None)
+    if feature_names is not None:
+        ordered = [row[str(c)] for c in feature_names]
+        X = pd.DataFrame([ordered], columns=list(feature_names))
+    else:
+        X = [[row[c] for c in COLS]]
+
+    pred = int(model.predict(X)[0])
     dt = time.time() - t0
     LATENCY.observe(dt)
-
-    msg = (
-        f"predict: {payload.dict()} -> {pred} "
-        f"in {dt * 1000:.2f}ms"
-    )
-    logger.info(msg)
+    logger.info(f"predict: {row} -> {pred} in {dt*1000:.2f}ms")
 
     # store into SQLite
     conn = sqlite3.connect("logs/predictions.db")
@@ -87,10 +86,10 @@ def predict(payload: IrisPayload):
         VALUES(datetime('now'), ?, ?, ?, ?, ?, ?)
         """,
         (
-            payload.sepal_length,
-            payload.sepal_width,
-            payload.petal_length,
-            payload.petal_width,
+            row["sepal_length"],
+            row["sepal_width"],
+            row["petal_length"],
+            row["petal_width"],
             pred,
             dt * 1000,
         ),
