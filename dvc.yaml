@@ -1,0 +1,10 @@
+stages:
+  prepare_data:
+    cmd: python src/data.py
+    deps:
+      - src/data.py
+    outs:
+      - data/raw/iris.csv
+      - data/processed/iris.csv
+      - data/metadata.json
+      - data/schema.json

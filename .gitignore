@@ -1,17 +1,56 @@
-.venv/
-venv/
+# --- Python / tooling ---
 __pycache__/
+*.py[cod]
 *.pyc
 .mypy_cache/
-.mlflow/
-mlruns/
-mlflow.db
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Virtual envs ---
+.venv/
+venv/
+
+# --- IDE / OS cruft ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Builds / dists ---
+build/
+dist/
+.build/
+*.egg-info/
+
+# --- Logs & local state ---
 logs/
 *.log
-.DS_Store
-.build/
-dist/
-*.egg-info/
+
+# --- Databases & local artifacts (not for Git) ---
 *.sqlite
-data/*.dvc
+
+# --- MLflow local runs / db ---
+mlruns/
+mlflow.db
+.mlflow/
+
+# --- DVC internals (cache/temp). Keep .dvc/ itself tracked, but ignore heavy internals.
+.dvc/cache/
+.dvc/tmp/
+
+# --- Data files managed by DVC (outs). DVC will also inject folder-level .gitignore entries.
+data/raw/iris.csv
+data/processed/iris.csv
+data/metadata.json
+data/schema.json
+# Keep human docs tracked:
+!data/DATA_README.md
+
+# --- Artifacts (keep the shipped model, ignore temp) ---
 artifacts/model/*.tmp
+
+# --- Docker / env files (best not to commit secrets) ---
+.env
+.env.*

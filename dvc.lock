@@ -1,0 +1,26 @@
+schema: '2.0'
+stages:
+  prepare_data:
+    cmd: python src/data.py
+    deps:
+    - path: src/data.py
+      hash: md5
+      md5: fcc66234f76cb57fab3108f0177c2089
+      size: 4546
+    outs:
+    - path: data/metadata.json
+      hash: md5
+      md5: baa9d423ab449285098d0a4e43123e27
+      size: 426
+    - path: data/processed/iris.csv
+      hash: md5
+      md5: 478cee5f267ecb031b6c2fdb8ba01b20
+      size: 2756
+    - path: data/raw/iris.csv
+      hash: md5
+      md5: 478cee5f267ecb031b6c2fdb8ba01b20
+      size: 2756
+    - path: data/schema.json
+      hash: md5
+      md5: 3805bcb46f7e1660cf1f51641c722a19
+      size: 235
