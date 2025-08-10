@@ -40,19 +40,25 @@ docker-run:
 	docker run --rm -p 8000:8000 gregariousgovind/mlops-iris:latest
 
 dvc-init:
-	dvc init
+	@{ [ -d .dvc ] && echo "DVC already initialized. Skipping."; } || dvc init
 
-# Creates a local folder outside the repo as the default DVC remote
 dvc-remote:
-	mkdir -p ../mlops-iris-storage
-	dvc remote add -d localremote ../mlops-iris-storage
+	@mkdir -p ../mlops-iris-storage
+	@{ dvc remote list | grep -q '^localremote'; } \
+		&& echo "DVC remote 'localremote' already exists. Skipping." \
+		|| dvc remote add -d localremote ../mlops-iris-storage
 
-# Build data via DVC pipeline (uses dvc.yaml)
+dvc-autostage:
+	dvc config core.autostage true
+
 dvc-repro:
 	dvc repro
 
-# Sync data artifacts to remote / from remote
 dvc-push:
 	dvc push
+
 dvc-pull:
 	dvc pull
+
+dvc-status:
+	dvc status -c
