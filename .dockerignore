@@ -1,27 +1,32 @@
-# Python
+# Python caches & venvs
 __pycache__/
 *.pyc
 .venv/
 venv/
 
-# VCS / CI / local
+# VCS / IDE / local junk
 .git/
 .github/
-.idea/
 .vscode/
+.idea/
+.DS_Store
 *.log
 
-# Data & runs (these are not needed inside runtime image)
+# Not needed at runtime
 data/
 mlruns/
 mlflow.db
 logs/
-
-# Tests & notebooks
 tests/
 notebooks/
 
-# DVC internals (we bake model artifact separately)
+# DVC internals (we bake the trained model separately)
 .dvc/
 *.dvc
 dvc.lock
+
+# IMPORTANT: we do NOT ignore artifacts/model because the image needs it
+# If you ever ignore artifacts/*, make sure to unignore the model path:
+# artifacts/*
+# !artifacts/model/
+# !artifacts/model/model.joblib
