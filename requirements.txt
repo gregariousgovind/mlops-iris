@@ -4,7 +4,7 @@ scikit-learn
 pandas
 numpy
 mlflow
-pydantic
+pydantic>=2.4
 prometheus-client
 joblib
 SQLAlchemy<2.0
