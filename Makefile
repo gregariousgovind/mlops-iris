@@ -38,3 +38,21 @@ docker-build:
 
 docker-run:
 	docker run --rm -p 8000:8000 gregariousgovind/mlops-iris:latest
+
+dvc-init:
+	dvc init
+
+# Creates a local folder outside the repo as the default DVC remote
+dvc-remote:
+	mkdir -p ../mlops-iris-storage
+	dvc remote add -d localremote ../mlops-iris-storage
+
+# Build data via DVC pipeline (uses dvc.yaml)
+dvc-repro:
+	dvc repro
+
+# Sync data artifacts to remote / from remote
+dvc-push:
+	dvc push
+dvc-pull:
+	dvc pull
