@@ -1,72 +1,17 @@
-# --- Python environments & caches ---
 .venv/
 venv/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-*.pyd.*
-.cache/
 .mypy_cache/
-__pypackages__/
-
-# --- Project/build artifacts ---
+.mlflow/
+mlruns/
+mlflow.db
+logs/
+*.log
+.DS_Store
 .build/
 dist/
 *.egg-info/
-
-# --- OS / Editors ---
-.DS_Store
-Thumbs.db
-Icon?
-.idea/
-.vscode/
-.history/
-.fleet/
-.direnv/
-.envrc
-*.swp
-*.swo
-
-# --- Logs & local DBs ---
-logs/
-*.log
 *.sqlite
-*.db
-mlflow.db
-
-# --- MLflow local runs (use server/remote for CI) ---
-.mlflow/
-mlruns/
-
-# --- Data & models ---
-# (Keep small artifacts/model files in repo if you want to bake them into Docker)
+data/*.dvc
 artifacts/model/*.tmp
-
-# --- DVC ---
-.dvc/cache/
-.dvc/tmp/
-# If you enable DVC for datasets, let DVC handle data files and commit *.dvc pointer files.
-# DO NOT ignore *.dvc files. (Uncomment below if you want to ignore raw data and only keep pointers)
-# data/**
-# !data/.gitkeep
-# !data/**/*.dvc
-
-# --- Notebooks ---
-.ipynb_checkpoints/
-
-# --- Tests / Coverage / Reports ---
-.pytest_cache/
-.coverage
-.coverage.*
-coverage.xml
-htmlcov/
-junit.xml
-reports/
-
-# --- Secrets / Env ---
-.env
-.env.*
-.secrets/
-*.pem
-*.key

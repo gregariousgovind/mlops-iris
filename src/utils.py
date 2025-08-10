@@ -1,7 +1,10 @@
-import logging, os, sqlite3
+import logging
+import os
+import sqlite3
 from logging.handlers import RotatingFileHandler
 
-def get_logger(name="app", log_file="logs/app.log"):
+
+def get_logger(name: str = "app", log_file: str = "logs/app.log") -> logging.Logger:
     os.makedirs("logs", exist_ok=True)
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
@@ -12,17 +15,20 @@ def get_logger(name="app", log_file="logs/app.log"):
         logger.addHandler(handler)
     return logger
 
-def ensure_sqlite(db_path="logs/predictions.db"):
+
+def ensure_sqlite(db_path: str = "logs/predictions.db") -> None:
     os.makedirs("logs", exist_ok=True)
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(
+        """
         CREATE TABLE IF NOT EXISTS requests(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           ts TEXT, sepal_length REAL, sepal_width REAL,
           petal_length REAL, petal_width REAL,
           pred INTEGER, latency_ms REAL
         )
-    """)
+        """
+    )
     conn.commit()
     conn.close()
