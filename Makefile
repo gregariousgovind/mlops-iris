@@ -22,7 +22,7 @@ test:
 	pytest -q
 
 docker-build:
-	docker build -t your-dockerhub-username/mlops-iris:latest .
+	docker build -t gregariousgovind/mlops-iris:latest .
 
 docker-run:
-	docker run --rm -p 8000:8000 your-dockerhub-username/mlops-iris:latest
+	docker run --rm -p 8000:8000 gregariousgovind/mlops-iris:latest
