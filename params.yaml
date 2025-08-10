@@ -1,0 +1,8 @@
+experiment_name: iris-exp
+test_size: 0.2
+random_state: 42
+rf:
+  n_estimators: 200
+  random_state: 42
+logreg:
+  max_iter: 200
