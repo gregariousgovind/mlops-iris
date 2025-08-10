@@ -1,14 +1,40 @@
-fastapi
-uvicorn
-scikit-learn
-pandas
-numpy
-mlflow
-pydantic>=2.4
-prometheus-client
-joblib
+# =========================
+# Runtime (API + Training)
+# =========================
+# Fast, typed web API framework; requires Pydantic v2+
+fastapi>=0.110,<1.0
+
+# ASGI server for FastAPI; [standard] pulls in uvloop, httptools for performance
+uvicorn[standard]>=0.23,<1.0
+
+# Core ML stack
+scikit-learn>=1.3,<2.0
+pandas>=2.1,<3.0
+numpy>=1.26,<3.0
+joblib>=1.3,<2.0
+
+# Experiment tracking & model registry
+mlflow>=2.10,<3.0
+
+# Request/response validation (v2 APIs); keep <3.0 to avoid breaking changes
+pydantic>=2.5,<3.0
+
+# Monitoring (/metrics) for Prometheus
+prometheus-client>=0.16,<1.0
+
+# MLflow local registry uses SQLite through SQLAlchemy
+# Pinning <2.0 keeps behavior stable for simple local setups
 SQLAlchemy<2.0
-pytest
-httpx
-flake8
-dvc
+
+# =========================
+# Dev / Test / Quality
+# =========================
+pytest>=8.0,<9.0
+httpx>=0.27,<1.0
+flake8>=6.1,<7.0
+
+# =========================
+# Data Versioning (DVC)
+# =========================
+# Optional in general, enabled in this project for Part 1
+dvc>=3.0,<4.0
