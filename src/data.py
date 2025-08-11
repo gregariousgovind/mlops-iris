@@ -28,7 +28,7 @@ import hashlib
 import json
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict
 
 from sklearn.datasets import load_iris
@@ -120,7 +120,7 @@ def save_iris(
     class_counts = df["label"].value_counts().to_dict()
     metadata = {
         "dataset": "iris",
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "rows": int(df.shape[0]),
         "columns": list(df.columns),
         "class_counts": class_counts,

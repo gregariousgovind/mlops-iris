@@ -5,13 +5,13 @@ stages:
     deps:
     - path: src/data.py
       hash: md5
-      md5: 825c84414b36f60f1646b676c593a37b
-      size: 4513
+      md5: 85912aec7e99fede0e36f743fce339a8
+      size: 4278
     outs:
     - path: data/metadata.json
       hash: md5
-      md5: 54a7cd5b712c3f6ab8d0c7a5fc02fa22
-      size: 426
+      md5: 4e628bf1e714adabb306e734f974833b
+      size: 431
     - path: data/processed/iris.csv
       hash: md5
       md5: 478cee5f267ecb031b6c2fdb8ba01b20

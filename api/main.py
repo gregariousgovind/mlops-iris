@@ -1,27 +1,13 @@
 """
 FastAPI service for the Iris classifier.
-
-Endpoints
----------
-GET  /health    : basic liveness & model status
-POST /predict   : predict label from sepal/petal measurements
-GET  /metrics   : Prometheus metrics (counters + latency histogram)
-GET  /docs      : Swagger UI
-
-Features
---------
-- Pydantic v2 input validation
-- Rotating file logs (logs/app.log)
-- SQLite request log (logs/predictions.db)
-- Prometheus metrics (predict_requests_total, predict_latency_seconds)
-- Reads model from MODEL_PATH (default: artifacts/model/model.joblib)
 """
 
 from __future__ import annotations
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
+from contextlib import asynccontextmanager
 
 import joblib
 import pandas as pd
@@ -39,15 +25,13 @@ from src.utils import (
 )
 
 # ------------------------------------------------------------------------------
-# App init
+# App + infra init
 # ------------------------------------------------------------------------------
-app = FastAPI(title="Iris MLOps API", version="1.0.0", docs_url="/docs", redoc_url=None)
 logger = get_logger()
-init_db()  # ensure SQLite table exists at startup
+init_db()  # ensure SQLite table exists early
 
 MODEL_PATH = os.getenv("MODEL_PATH", "artifacts/model/model.joblib")
-
-_model = None  # loaded on startup
+_model = None  # loaded during lifespan
 _feature_order = ["sepal_length", "sepal_width", "petal_length", "petal_width"]
 _target_names = {0: "setosa", 1: "versicolor", 2: "virginica"}
 
@@ -60,14 +44,30 @@ def _load_model(path: str):
     return model
 
 
-@app.on_event("startup")
-def _startup():
+def _ensure_model_loaded() -> None:
     global _model
-    try:
-        _model = _load_model(MODEL_PATH)
-    except Exception as e:
-        logger.exception("Failed to load model: %s", e)
-        # Don't crash the process; /health will report not ready
+    if _model is None:
+        try:
+            _model = _load_model(MODEL_PATH)
+        except Exception as e:
+            logger.exception("Failed to load model: %s", e)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # startup
+    _ensure_model_loaded()
+    yield
+    # shutdown (noop)
+
+
+app = FastAPI(
+    title="Iris MLOps API",
+    version="1.0.1",
+    docs_url="/docs",
+    redoc_url=None,
+    lifespan=lifespan,
+)
 
 
 # ------------------------------------------------------------------------------
@@ -80,15 +80,10 @@ class IrisFeatures(BaseModel):
     petal_width: float = Field(..., ge=0, description="petal width (cm)")
 
     def to_dataframe(self) -> pd.DataFrame:
-        # Ensure correct column order for sklearn model
-        return pd.DataFrame([
-            [
-                self.sepal_length,
-                self.sepal_width,
-                self.petal_length,
-                self.petal_width
-            ]
-        ], columns=_feature_order)
+        return pd.DataFrame(
+            [[self.sepal_length, self.sepal_width, self.petal_length, self.petal_width]],
+            columns=_feature_order,
+        )
 
 
 class PredictResponse(BaseModel):
@@ -109,7 +104,7 @@ def health() -> JSONResponse:
         "ok": True,
         "model_loaded": ready,
         "model_path": MODEL_PATH,
-        "time": datetime.utcnow().isoformat() + "Z",
+        "time": datetime.now(timezone.utc).isoformat(),
     }
     status = 200 if ready else 503
     return JSONResponse(content=body, status_code=status)
@@ -118,38 +113,44 @@ def health() -> JSONResponse:
 @app.post("/predict", response_model=PredictResponse)
 def predict(payload: IrisFeatures):
     if _model is None:
+        _ensure_model_loaded()
+    if _model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
     PREDICT_REQUESTS.inc()
     t0 = time.perf_counter()
-    ts = datetime.utcnow().isoformat() + "Z"
+    ts = datetime.now(timezone.utc).isoformat()
 
+    yhat_int = -1
     try:
-        X = payload.to_dataframe()
-        yhat = _model.predict(X)[0]
+        # Use numpy arrays to avoid sklearn "feature names" warning
+        X_df = payload.to_dataframe()
+        X = X_df.values
+
+        yhat_int = int(_model.predict(X)[0])
         resp = PredictResponse(
-            label_id=int(yhat),
-            label_name=_target_names.get(int(yhat), str(yhat)),
+            label_id=yhat_int,
+            label_name=_target_names.get(yhat_int, str(yhat_int)),
             probabilities=None,
             model_path=MODEL_PATH,
             timestamp=ts,
         )
 
-        # If model supports probabilities, include them
         if hasattr(_model, "predict_proba"):
             proba = _model.predict_proba(X)[0]
-            resp.probabilities = {_target_names[int(i)]: float(p) for i, p in enumerate(proba)}
+            resp.probabilities = {
+                _target_names[int(i)]: float(p) for i, p in enumerate(proba)
+            }
 
         return resp
     finally:
-        # Metrics + logging regardless of success
         latency = time.perf_counter() - t0
         PREDICT_LATENCY.observe(latency)
         try:
             log_prediction(
                 ts_iso=ts,
                 features=payload.model_dump(),
-                prediction=int(yhat) if "_model" in globals() and _model is not None else -1,
+                prediction=yhat_int,
                 latency_ms=latency * 1000.0,
             )
         except Exception as e:
@@ -157,8 +158,8 @@ def predict(payload: IrisFeatures):
         logger.info(
             "pred | features=%s | yhat=%s | latency_ms=%.2f",
             payload.model_dump(),
-            int(yhat) if _model else None,
-            latency * 1000.0
+            None if yhat_int < 0 else yhat_int,
+            latency * 1000.0,
         )
 
 

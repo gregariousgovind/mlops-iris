@@ -1,6 +1,12 @@
 # ---- Config & tool paths ------------------------------------------------------
 SHELL := /bin/bash
 
+# Find a Python interpreter (prefer python3)
+PY_CMD := $(or $(shell command -v python3),$(shell command -v python),$(shell command -v py))
+ifeq ($(PY_CMD),)
+$(error No Python interpreter found. Install Python 3.10+ and ensure 'python3' or 'python' is on PATH.)
+endif
+
 # ---- Virtualenv paths (cross-OS) ---------------------------------------------
 ifeq ($(OS),Windows_NT)
   VENV_BIN := .venv/Scripts
@@ -65,18 +71,18 @@ help:
 # ---- Environment & installs ---------------------------------------------------
 setup:
 	@echo ">> Using $(REQUIREMENTS_FILE) for installation"
-	python -m venv .venv
+	$(PY_CMD) -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r $(REQUIREMENTS_FILE)
 
 setup-lock:
 	@test -f requirements.lock.txt || (echo "requirements.lock.txt not found. Run 'make lock' first." && exit 1)
-	python -m venv .venv
+	$(PY_CMD) -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.lock.txt
 
 lock:
-	python -m venv .venv
+	$(PY_CMD) -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	$(PIP) freeze | sed '/^-e /d' > requirements.lock.txt
@@ -86,7 +92,7 @@ update-lock: lock
 
 ci-install:
 	@test -f requirements.lock.txt || (echo "requirements.lock.txt not found. Run 'make lock' first." && exit 1)
-	python -m venv .venv
+	$(PY_CMD) -m venv .venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.lock.txt
 

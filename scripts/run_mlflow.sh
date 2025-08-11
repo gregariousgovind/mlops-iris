@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start MLflow tracking server (SQLite backend).
 # Usage:
-#   ./scripts/run_mlflow.sh
+#   ./scripts/run_mlflow.sh           # auto-picks a free port if busy
 #   ./scripts/run_mlflow.sh --port 5010
 #   ./scripts/run_mlflow.sh --fresh
 
@@ -21,6 +21,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# ---- Resolve Python & MLflow command -----------------------------------------
+PY_CMD="$(command -v python3 || true)"
+if [[ -z "$PY_CMD" ]]; then PY_CMD="$(command -v python || true)"; fi
+if [[ -z "$PY_CMD" ]]; then PY_CMD="$(command -v py || true)"; fi
+if [[ -z "$PY_CMD" ]]; then
+  echo "[mlflow] No Python found on PATH. Install Python 3.10+."; exit 1
+fi
+
+# Prefer venv mlflow if present; else python -m mlflow; else bail.
+if [[ -x ".venv/bin/mlflow" ]]; then
+  MLFLOW_CMD=".venv/bin/mlflow"
+elif "$PY_CMD" -c "import mlflow" >/dev/null 2>&1; then
+  MLFLOW_CMD="$PY_CMD -m mlflow"
+else
+  echo "[mlflow] 'mlflow' not found."
+  echo "         Run: make setup-lock   # installs mlflow into .venv"
+  exit 1
+fi
+
 if [[ "$FRESH" -eq 1 ]]; then
   TS=$(date +%s)
   if [[ -f mlflow.db ]]; then
@@ -35,7 +54,7 @@ fi
 
 # --- find a free port without lsof (Python one-liner) ---
 is_port_busy() {
-python - <<'PY' "$1"
+"$PY_CMD" - <<'PY' "$1"
 import socket, sys
 port=int(sys.argv[1])
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -62,12 +81,12 @@ echo "[mlflow] Artifact root : ${ARTIFACT_ROOT}"
 echo "[mlflow] UI            : http://${HOST}:${PORT}"
 
 # Best-effort DB upgrade (ok to continue if it fails; suggest --fresh)
-if ! mlflow db upgrade "${BACKEND_URI}"; then
+if ! ${MLFLOW_CMD} db upgrade "${BACKEND_URI}"; then
   echo "[mlflow] DB upgrade failed (likely migration mismatch)."
   echo "[mlflow] Tip: run './scripts/run_mlflow.sh --fresh' to reset local DB."
 fi
 
-exec mlflow server \
+exec ${MLFLOW_CMD} server \
   --backend-store-uri "${BACKEND_URI}" \
   --default-artifact-root "${ARTIFACT_ROOT}" \
   --host "${HOST}" \

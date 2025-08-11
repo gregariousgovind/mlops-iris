@@ -5,7 +5,6 @@ from typing import Dict
 
 import pandas as pd
 
-# ---- Paths expected from src/data.py (and dvc.yaml stage) ---------------------
 RAW = "data/raw/iris.csv"
 PROCESSED = "data/processed/iris.csv"
 SCHEMA = "data/schema.json"
@@ -25,9 +24,6 @@ def sha256_file(path: str) -> str:
     return h.hexdigest()
 
 
-# --------------------------------------------------------------------------------
-# Existence checks
-# --------------------------------------------------------------------------------
 def test_files_exist() -> None:
     assert os.path.exists(RAW), "Missing data/raw/iris.csv"
     assert os.path.exists(PROCESSED), "Missing data/processed/iris.csv"
@@ -35,9 +31,6 @@ def test_files_exist() -> None:
     assert os.path.exists(METADATA), "Missing data/metadata.json"
 
 
-# --------------------------------------------------------------------------------
-# Schema contract
-# --------------------------------------------------------------------------------
 def test_schema_contract() -> None:
     schema: Dict = json.load(open(SCHEMA))
     assert "features" in schema and isinstance(schema["features"], dict)
@@ -51,25 +44,15 @@ def test_schema_contract() -> None:
     assert TARGET_COL in schema["target"], "Schema missing target label"
 
 
-# --------------------------------------------------------------------------------
-# Metadata contract + checksum integrity
-# --------------------------------------------------------------------------------
 def test_metadata_contract_and_checksum() -> None:
     meta: Dict = json.load(open(METADATA))
     for key in ["dataset", "rows", "columns", "processed_csv", "checksum_sha256", "created_at"]:
         assert key in meta, f"metadata.json missing '{key}'"
-
-    # Path should match constant
     assert meta["processed_csv"] == PROCESSED
-
-    # Checksum must match actual processed csv
     actual = sha256_file(PROCESSED)
     assert actual == meta["checksum_sha256"], "Checksum mismatch: processed CSV changed unexpectedly"
 
 
-# --------------------------------------------------------------------------------
-# Dataframe expectations (shape, columns, basic types and values)
-# --------------------------------------------------------------------------------
 def test_dataframe_expectations() -> None:
     df = pd.read_csv(PROCESSED)
 
@@ -78,8 +61,10 @@ def test_dataframe_expectations() -> None:
     for col in FEATURE_COLS + [TARGET_COL]:
         assert col in df.columns, f"Missing column: {col}"
 
-    # simple type checks (numeric features, integer labels)
-    assert pd.api.types.is_numeric_dtype(df[FEATURE_COLS].dtypes).all(), "Features must be numeric"
+    # numeric features (check each column dtype)
+    assert all(pd.api.types.is_numeric_dtype(df[c].dtype) for c in FEATURE_COLS), "Features must be numeric"
+
+    # integer-coded label
     assert pd.api.types.is_integer_dtype(df[TARGET_COL].dtype), "Label should be integer-coded"
 
     # value domain checks

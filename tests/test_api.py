@@ -15,30 +15,29 @@ def _train_tiny_iris_model(tmp_model_path: str) -> None:
     X = iris.frame[["sepal length (cm)", "sepal width (cm)",
                     "petal length (cm)", "petal width (cm)"]].to_numpy()
     y = iris.target.to_numpy()
-    # small model, quick to fit
-    clf = LogisticRegression(max_iter=100, n_jobs=None)
+    clf = LogisticRegression(max_iter=300)
     clf.fit(X, y)
     joblib.dump(clf, tmp_model_path)
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch) -> TestClient:
+def client(tmp_path, monkeypatch):
     """
-    Make a TestClient with MODEL_PATH pointing to a temp trained model.
-    We set the env var before importing api.main, then reload the module.
+    TestClient that runs FastAPI lifespan (startup/shutdown),
+    ensuring the model loads before requests.
     """
     model_path = tmp_path / "model.joblib"
     _train_tiny_iris_model(str(model_path))
-
     monkeypatch.setenv("MODEL_PATH", str(model_path))
 
-    # Ensure a clean import so api.main picks up the env var
+    # Ensure a clean import so api.main picks up env + lifespan
     if "api.main" in sys.modules:
         del sys.modules["api.main"]
     api_main = importlib.import_module("api.main")
 
-    # Construct client; FastAPI startup will load the model
-    return TestClient(api_main.app)
+    # Use context manager so lifespan events run
+    with TestClient(api_main.app) as c:
+        yield c
 
 
 def test_health_ok(client: TestClient):
@@ -62,26 +61,23 @@ def test_predict_success(client: TestClient):
     body = r.json()
     assert "label_id" in body and "label_name" in body
     assert body["label_id"] in [0, 1, 2]
-    # optional probabilities may be present
     if "probabilities" in body and body["probabilities"] is not None:
         assert isinstance(body["probabilities"], dict)
     assert "timestamp" in body
 
 
 def test_predict_validation_error(client: TestClient):
-    # Missing required field -> 422
     bad = {
         "sepal_length": 5.1,
         "sepal_width": 3.5,
         "petal_length": 1.4,
-        # "petal_width" missing
+        # missing petal_width
     }
     r = client.post("/predict", json=bad)
     assert r.status_code == 422
 
 
 def test_metrics_exposed(client: TestClient):
-    # After at least one request, metrics endpoint should be text/plain
     r = client.get("/metrics")
     assert r.status_code == 200
     assert r.headers.get("content-type", "").startswith("text/plain")
