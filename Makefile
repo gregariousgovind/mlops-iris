@@ -1,5 +1,6 @@
 # ---- Config & tool paths ------------------------------------------------------
 SHELL := /bin/bash
+.DEFAULT_GOAL := help
 
 # Find a Python interpreter (prefer python3)
 PY_CMD := $(or $(shell command -v python3),$(shell command -v python),$(shell command -v py))
@@ -29,6 +30,8 @@ REQUIREMENTS_FILE := $(if $(wildcard requirements.lock.txt),requirements.lock.tx
 API_PORT := 8000
 MLFLOW_HOST := 127.0.0.1
 MLFLOW_PORT := 5000
+# Allow external override of the tracking URI; defaults to host:port above
+MLFLOW_URI ?= http://$(MLFLOW_HOST):$(MLFLOW_PORT)
 
 # Docker
 DOCKER_IMAGE := gregariousgovind/mlops-iris:latest
@@ -38,7 +41,10 @@ DOCKER_IMAGE := gregariousgovind/mlops-iris:latest
         data mlflow train api lint test \
         docker-build docker-run \
         dvc-init dvc-remote dvc-autostage dvc-repro dvc-push dvc-pull dvc-status \
-        test-part1 qa-part1 clean
+        test-part1 qa-part1 clean bootstrap
+
+bootstrap:
+	./scripts/bootstrap.sh
 
 help:
 	@echo ""
@@ -50,7 +56,7 @@ help:
 	@echo "  ci-install      Install EXACT deps from lock (for local CI parity)"
 	@echo "  data            Generate data files (raw/processed/schema/metadata)"
 	@echo "  mlflow          Run MLflow tracking server (SQLite backend)"
-	@echo "  train           Train models and log to MLflow"
+	@echo "  train           Train models and log to MLflow (uses MLFLOW_URI, overrideable)"
 	@echo "  api             Run FastAPI locally"
 	@echo "  lint            Run flake8"
 	@echo "  test            Run full pytest (ensures data exists)"
@@ -105,7 +111,7 @@ mlflow:
 	  --default-artifact-root ./mlruns --host $(MLFLOW_HOST) --port $(MLFLOW_PORT)
 
 train:
-	MLFLOW_TRACKING_URI=http://$(MLFLOW_HOST):$(MLFLOW_PORT) $(PYTHON) src/train.py
+	MLFLOW_TRACKING_URI=$(MLFLOW_URI) $(PYTHON) src/train.py
 
 api:
 	$(UVICORN) api.main:app --reload --port $(API_PORT)
