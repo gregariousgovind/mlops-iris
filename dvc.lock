@@ -10,7 +10,7 @@ stages:
     outs:
     - path: data/metadata.json
       hash: md5
-      md5: 4e628bf1e714adabb306e734f974833b
+      md5: 3129ada3f9a45127e4e9328305c47aed
       size: 431
     - path: data/processed/iris.csv
       hash: md5
